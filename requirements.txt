@@ -2,6 +2,7 @@
 # If you experience dependency conflicts (e.g. with conda-repo-cli, langchain-ollama, ollama, etc.),
 # please use a dedicated virtual environment and uninstall the conflicting packages.
 torch>=2.0.0
+tf-keras
 huggingface-hub>=0.19.4
 transformers>=4.30.0
 sentence-transformers>=2.2.0

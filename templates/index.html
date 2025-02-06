@@ -106,6 +106,44 @@
         content: '';
       }
     }
+
+    /* New style for team images */
+    .team-image {
+      width: 192px;
+      height: 192px;
+      background-size: cover;
+      background-position: center;
+      border-radius: 50%;
+    }
+
+    .recording {
+      animation: pulse 1.5s ease-in-out infinite;
+      background: linear-gradient(to right, #ef4444, #dc2626) !important;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.05);
+      }
+    }
+
+    .recording-indicator {
+      display: none;
+      color: #ef4444;
+      align-items: center;
+      margin-left: 8px;
+      animation: blink 1s infinite;
+    }
+
+    .recording .recording-indicator {
+      display: inline-flex;
+    }
   </style>
 </head>
 
@@ -234,16 +272,18 @@
           </div>
         </div>
 
-        <button type="submit"
-          class="group w-full md:w-auto px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center space-x-2 transform hover:scale-105">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 transform group-hover:rotate-12 transition-transform"
-            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            stroke-linejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
-          <span>Submit Query</span>
-        </button>
+        <div class="flex space-x-4">
+          <button type="submit"
+            class="group px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium rounded-xl shadow-lg">
+            Submit Query
+          </button>
+          <button type="button" id="voiceButton"
+            class="group px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-medium rounded-xl shadow-lg flex items-center space-x-2">
+            <span class="microphone-icon">🎤</span>
+            <span class="button-text">Start Voice Input</span>
+            <span class="recording-status"></span>
+          </button>
+        </div>
       </form>
     </div>
 
@@ -280,8 +320,7 @@
         <!-- Deep Das - AI ML Lead -->
         <div class="group relative">
           <div class="overflow-hidden bg-gray-100 flex justify-center">
-            <img src="deep_photo.jpg" alt="Deep Das"
-              class="w-48 h-48 object-cover rounded-full transition-opacity duration-300 group-hover:opacity-75">
+            <div class="team-image" style="background-image: url('https://example.com/DeepDas.jpg');"></div>
           </div>
           <div class="mt-6">
             <h3 class="text-lg font-medium text-gray-900">
@@ -317,8 +356,7 @@
         <!-- Swapna K - Frontend Lead -->
         <div class="group relative">
           <div class="overflow-hidden bg-gray-100 flex justify-center">
-            <img src="swapna.jpg" alt="Swapna K"
-              class="w-48 h-48 object-cover rounded-full transition-opacity duration-300 group-hover:opacity-75">
+            <div class="team-image" style="background-image: url('https://example.com/SwapnaK.jpg');"></div>
           </div>
           <div class="mt-6">
             <h3 class="text-lg font-medium text-gray-900">
@@ -373,7 +411,6 @@
     async function submitQuery() {
       const query = document.getElementById('queryInput').value;
       const responseText = document.getElementById('responseText');
-      // Unhide the response container if hidden
       document.getElementById('responseContainer').classList.remove('hidden');
       responseText.innerHTML = 'Processing query...';
 
@@ -383,18 +420,188 @@
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ query: query })
+          body: JSON.stringify({
+            query: query,
+            language: "English"  // Add explicit language
+          })
         });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const data = await response.json();
-        responseText.innerHTML = data.response;
+        if (data && data.response) {
+          responseText.innerHTML = data.response;
+        } else {
+          responseText.innerHTML = "Sorry, I couldn't process that query. Please try again.";
+        }
       } catch (error) {
-        responseText.innerHTML = "Error: " + error.message;
+        console.error('Error:', error);
+        responseText.innerHTML = "Error processing query. Please try again.";
       }
     }
 
     document.getElementById('queryForm').addEventListener('submit', async function (e) {
       e.preventDefault();
       submitQuery();
+    });
+
+    let recognition = null;
+    let isRecording = false;
+
+    async function initializeVoiceInput() {
+      try {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          throw new Error("Speech recognition not supported");
+        }
+        
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        
+        recognition.onstart = () => {
+          isRecording = true;
+          const voiceButton = document.getElementById('voiceButton');
+          const buttonText = voiceButton.querySelector('.button-text');
+          voiceButton.classList.add('recording');
+          buttonText.textContent = 'Stop Voice Input';
+          document.getElementById('queryInput').placeholder = 'Listening...';
+        };
+        
+        recognition.onresult = (event) => {
+          const transcript = Array.from(event.results)
+            .map(result => result[0])
+            .map(result => result.transcript)
+            .join('');
+        
+          document.getElementById('queryInput').value = transcript;
+        };
+        
+        recognition.onerror = (event) => {
+          console.error('Speech recognition error:', event.error);
+          if (event.error === 'not-allowed') {
+            alert('Please allow microphone access to use voice input.');
+          }
+          stopRecording();
+        };
+        
+        recognition.onend = () => {
+          // Only stop if we're not deliberately keeping it running
+          if (isRecording) {
+            // Restart recognition to keep it going
+            try {
+              recognition.start();
+            } catch (e) {
+              console.error('Could not restart recognition:', e);
+              stopRecording();
+            }
+          }
+        };
+        
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error('Error starting recognition:', e);
+          stopRecording();
+        }
+      } catch (error) {
+        console.error('Error initializing voice input:', error);
+      }
+    }
+
+    function toggleRecording() {
+      const voiceButton = document.getElementById('voiceButton');
+      const buttonText = voiceButton.querySelector('.button-text');
+      const queryInput = document.getElementById('queryInput');
+
+      if (!isRecording) {
+        startRecording();
+      } else {
+        stopRecording();
+      }
+    }
+
+    function startRecording() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Speech recognition is not supported in your browser.");
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        isRecording = true;
+        const voiceButton = document.getElementById('voiceButton');
+        const buttonText = voiceButton.querySelector('.button-text');
+        voiceButton.classList.add('recording');
+        buttonText.textContent = 'Stop Voice Input';
+        document.getElementById('queryInput').placeholder = 'Listening...';
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0])
+          .map(result => result.transcript)
+          .join('');
+
+        document.getElementById('queryInput').value = transcript;
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          alert('Please allow microphone access to use voice input.');
+        }
+        stopRecording();
+      };
+
+      recognition.onend = () => {
+        // Only stop if we're not deliberately keeping it running
+        if (isRecording) {
+          // Restart recognition to keep it going
+          try {
+            recognition.start();
+          } catch (e) {
+            console.error('Could not restart recognition:', e);
+            stopRecording();
+          }
+        }
+      };
+
+      try {
+        recognition.start();
+      } catch (e) {
+        console.error('Error starting recognition:', e);
+        stopRecording();
+      }
+    }
+
+    function stopRecording() {
+      if (recognition) {
+        recognition.stop();
+      }
+      isRecording = false;
+      const voiceButton = document.getElementById('voiceButton');
+      const buttonText = voiceButton.querySelector('.button-text');
+      voiceButton.classList.remove('recording');
+      buttonText.textContent = 'Start Voice Input';
+      document.getElementById('queryInput').placeholder = 'Enter your insurance or banking query here...';
+    }
+
+    document.getElementById('voiceButton').addEventListener('click', toggleRecording);
+
+    // Add cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      if (recognition) {
+        recognition.stop();
+      }
     });
   </script>
 </body>

@@ -73,6 +73,9 @@ instance/
 # Sphinx documentation
 docs/_build/
 
+models/
+models\mistral-7b-instruct-v0.1.Q4_K_M.gguf
+
 # PyBuilder
 .pybuilder/
 target/
