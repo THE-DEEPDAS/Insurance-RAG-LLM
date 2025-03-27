@@ -287,6 +287,23 @@
       </form>
     </div>
 
+    <!-- Add this after the query form -->
+    <div class="flex space-x-4 mb-4">
+      <select id="modelSelect" class="rounded-lg border-gray-200 px-4 py-2">
+        <option value="local-mistral">Local Mistral</option>
+        <option value="groq-mixtral">Groq Mixtral</option>
+        <option value="anthropic-claude">Claude 3</option>
+        <option value="ollama-llama2">Llama 2</option>
+        <option value="openai-gpt4">GPT-4</option>
+        <option value="together-yi">Yi 34B</option>
+      </select>
+
+      <button id="generateReport"
+        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+        Generate Report
+      </button>
+    </div>
+
     <div id="responseContainer" class="hidden">
       <div class="bg-white rounded-2xl shadow-xl p-6 animate-slide-up">
         <div class="flex items-start space-x-4">
@@ -410,6 +427,7 @@
 
     async function submitQuery() {
       const query = document.getElementById('queryInput').value;
+      const model = document.getElementById('modelSelect').value;
       const responseText = document.getElementById('responseText');
       document.getElementById('responseContainer').classList.remove('hidden');
       responseText.innerHTML = 'Processing query...';
@@ -422,7 +440,8 @@
           },
           body: JSON.stringify({
             query: query,
-            language: "English"  // Add explicit language
+            language: "English",
+            model_name: model
           })
         });
 
@@ -456,12 +475,12 @@
         if (!SpeechRecognition) {
           throw new Error("Speech recognition not supported");
         }
-        
+
         recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'en-US';
-        
+
         recognition.onstart = () => {
           isRecording = true;
           const voiceButton = document.getElementById('voiceButton');
@@ -470,16 +489,16 @@
           buttonText.textContent = 'Stop Voice Input';
           document.getElementById('queryInput').placeholder = 'Listening...';
         };
-        
+
         recognition.onresult = (event) => {
           const transcript = Array.from(event.results)
             .map(result => result[0])
             .map(result => result.transcript)
             .join('');
-        
+
           document.getElementById('queryInput').value = transcript;
         };
-        
+
         recognition.onerror = (event) => {
           console.error('Speech recognition error:', event.error);
           if (event.error === 'not-allowed') {
@@ -487,7 +506,7 @@
           }
           stopRecording();
         };
-        
+
         recognition.onend = () => {
           // Only stop if we're not deliberately keeping it running
           if (isRecording) {
@@ -500,7 +519,7 @@
             }
           }
         };
-        
+
         try {
           recognition.start();
         } catch (e) {
@@ -603,6 +622,40 @@
         recognition.stop();
       }
     });
+
+    async function generateReport() {
+      const model = document.getElementById('modelSelect').value;
+      try {
+        const response = await fetch('/generate_report', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ model_name: model })
+        });
+
+        if (response.headers.get('Content-Type') === 'application/pdf') {
+          // Handle PDF download
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'financial_report.pdf';
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          a.remove();
+        } else {
+          const data = await response.json();
+          alert('Report generated successfully!');
+        }
+      } catch (error) {
+        console.error('Error generating report:', error);
+        alert('Error generating report. Please try again.');
+      }
+    }
+
+    document.getElementById('generateReport').addEventListener('click', generateReport);
   </script>
 </body>
 
